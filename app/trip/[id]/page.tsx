@@ -15,17 +15,53 @@ export default function TripPage() {
 
   const { trip, members, expenses, loading, saveError, clearSaveError } = useTripContext();
   const [showInvite, setShowInvite] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [acting, setActing] = useState(false);
 
   const userId = typeof window !== 'undefined' ? getUserId() : null;
+  const isOwner = !!userId && trip?.owner_id === userId;
 
-  // Show save error that originated from the add page
   useEffect(() => {
     if (saveError) {
       const t = setTimeout(clearSaveError, 5000);
       return () => clearTimeout(t);
     }
   }, [saveError, clearSaveError]);
+
+  async function handleLeave() {
+    if (!userId || !confirm('Leave this trip? You can rejoin via invite link.')) return;
+    setActing(true);
+    const res = await fetch(`/api/trips/${tripId}/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (res.ok) {
+      window.location.href = '/';
+    } else {
+      const d = await res.json();
+      alert(d.error ?? 'Failed to leave trip.');
+      setActing(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!userId || !confirm(`Delete "${trip?.name}"? This cannot be undone and will remove all expenses.`)) return;
+    setActing(true);
+    const res = await fetch(`/api/trips/${tripId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    if (res.ok) {
+      window.location.href = '/';
+    } else {
+      const d = await res.json();
+      alert(d.error ?? 'Failed to delete trip.');
+      setActing(false);
+    }
+  }
 
   if (loading && !trip) {
     return (
@@ -59,14 +95,12 @@ export default function TripPage() {
 
   return (
     <main className="min-h-screen bg-zinc-50">
-      {/* Save error banner */}
       {saveError && (
         <div className="fixed top-0 inset-x-0 z-50 bg-red-500 text-white text-sm text-center py-2 px-4">
           {saveError}
         </div>
       )}
 
-      {/* Header */}
       <header className="bg-white border-b border-zinc-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
           <div>
@@ -91,12 +125,22 @@ export default function TripPage() {
             >
               + Invite
             </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="text-zinc-400 hover:text-black transition-colors p-1"
+              title="Settings"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1" fill="currentColor" />
+                <circle cx="6" cy="12" r="1" fill="currentColor" />
+                <circle cx="18" cy="12" r="1" fill="currentColor" />
+              </svg>
+            </button>
           </div>
         </div>
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-4 pb-8">
-        {/* Summary card */}
         <div className="bg-black text-white rounded-2xl p-5 mb-4">
           <p className="text-zinc-400 text-xs font-medium tracking-wide">TOTAL SPENT</p>
           <p className="text-4xl font-bold mt-1">{fmt(total, currency)}</p>
@@ -116,7 +160,6 @@ export default function TripPage() {
           </div>
         </div>
 
-        {/* Members */}
         {members.length > 0 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4">
             {members.map((m) => (
@@ -130,7 +173,6 @@ export default function TripPage() {
           </div>
         )}
 
-        {/* Expense list */}
         {expenses.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-5xl mb-3">🧾</p>
@@ -168,19 +210,14 @@ export default function TripPage() {
           >
             <h2 className="font-bold text-lg mb-0.5">Invite to {trip.name}</h2>
             <p className="text-zinc-400 text-sm mb-5">Share the code or scan QR</p>
-
             <div className="bg-zinc-50 rounded-xl p-4 text-center mb-4">
-              <p className="text-3xl font-bold tracking-[0.25em] font-mono">
-                {trip.invite_code}
-              </p>
+              <p className="text-3xl font-bold tracking-[0.25em] font-mono">{trip.invite_code}</p>
             </div>
-
             {inviteUrl && (
               <div className="flex justify-center mb-5">
                 <QRCodeSVG value={inviteUrl} size={148} className="rounded-lg" />
               </div>
             )}
-
             <div className="space-y-2">
               <button
                 onClick={copyInvite}
@@ -191,9 +228,7 @@ export default function TripPage() {
               <button
                 onClick={() =>
                   window.open(
-                    `https://wa.me/?text=${encodeURIComponent(
-                      `Join ${trip.name} on Splice 💸\n${inviteUrl}`
-                    )}`,
+                    `https://wa.me/?text=${encodeURIComponent(`Join ${trip.name} on Splice 💸\n${inviteUrl}`)}`,
                     '_blank'
                   )
                 }
@@ -202,6 +237,42 @@ export default function TripPage() {
                 Share on WhatsApp
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings modal */}
+      {showSettings && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-bold text-lg">{trip.name}</h2>
+            <a href="/" className="block w-full border border-zinc-200 rounded-xl py-3 text-sm font-medium text-center text-zinc-700 hover:border-zinc-400 transition-colors">
+              ← Back to home
+            </a>
+            {!isOwner && (
+              <button
+                onClick={handleLeave}
+                disabled={acting}
+                className="w-full border border-red-200 rounded-xl py-3 text-sm font-medium text-red-500 hover:border-red-400 transition-colors disabled:opacity-40"
+              >
+                Leave trip
+              </button>
+            )}
+            {isOwner && (
+              <button
+                onClick={handleDelete}
+                disabled={acting}
+                className="w-full bg-red-500 text-white rounded-xl py-3 text-sm font-medium active:opacity-80 disabled:opacity-40"
+              >
+                Delete trip
+              </button>
+            )}
           </div>
         </div>
       )}
