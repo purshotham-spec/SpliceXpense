@@ -35,9 +35,12 @@ export async function GET(
     console.error('Expenses fetch error:', expensesResult.error);
   }
 
-  return NextResponse.json({
-    trip: tripResult.data,
-    members: membersResult.data ?? [],
-    expenses: expensesResult.data ?? [],
-  });
+  return NextResponse.json(
+    {
+      trip: tripResult.data,
+      members: membersResult.data ?? [],
+      expenses: expensesResult.data ?? [],
+    },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

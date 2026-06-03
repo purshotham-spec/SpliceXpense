@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { setUserId, setUserName } from '@/lib/user';
+import { setUserId, setUserName, getUserId } from '@/lib/user';
+import type { Trip } from '@/lib/types';
 
 const CURRENCIES = [
   { code: 'INR', label: 'INR — Indian Rupee (₹)' },
@@ -30,6 +31,17 @@ export default function HomePage() {
   const [joinError, setJoinError] = useState('');
   const [checking, setChecking] = useState(false);
 
+  const [myTrips, setMyTrips] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    const userId = getUserId();
+    if (!userId) return;
+    fetch(`/api/users/${userId}/trips`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((trips: Trip[]) => setMyTrips(trips))
+      .catch(() => {});
+  }, []);
+
   async function handleCreate() {
     if (!ownerName.trim() || !tripName.trim()) return;
     setCreating(true);
@@ -54,7 +66,7 @@ export default function HomePage() {
       if (!tripRes.ok) throw new Error(trip.error);
 
       window.location.href = `/trip/${trip.id}`;
-    } catch (err) {
+    } catch {
       alert('Something went wrong. Please try again.');
       setCreating(false);
     }
@@ -84,6 +96,25 @@ export default function HomePage() {
           <h1 className="text-4xl font-bold tracking-tight">splice</h1>
           <p className="text-zinc-400 text-sm mt-1.5">split expenses, not friendships</p>
         </div>
+
+        {/* Existing trips */}
+        {myTrips.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs text-zinc-400 font-medium mb-2">YOUR TRIPS</p>
+            <div className="space-y-2">
+              {myTrips.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => window.location.href = `/trip/${t.id}`}
+                  className="w-full flex items-center justify-between bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3 hover:border-zinc-400 transition-colors"
+                >
+                  <span className="text-sm font-medium">{t.name}</span>
+                  <span className="text-xs text-zinc-400">{t.currency} →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex border border-zinc-200 rounded-2xl overflow-hidden mb-5">
           {(['create', 'join'] as const).map((t) => (
