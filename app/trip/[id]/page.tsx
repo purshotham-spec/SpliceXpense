@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { getUserId } from '@/lib/user';
@@ -20,22 +20,20 @@ export default function TripPage() {
 
   const userId = typeof window !== 'undefined' ? getUserId() : null;
 
-  function loadData() {
+  const loadData = useCallback(() => {
     setLoading(true);
     fetch(`/api/trips/${tripId}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false));
-  }
+  }, [tripId]);
 
-  // Re-fetch every time the page becomes visible (covers back-navigation)
   useEffect(() => {
     loadData();
-    const handleVisibility = () => { if (document.visibilityState === 'visible') loadData(); };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripId]);
+    const onVisible = () => { if (document.visibilityState === 'visible') loadData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadData]);
 
   if (loading) {
     return (

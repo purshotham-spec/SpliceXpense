@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { calculateBalances } from '@/lib/balance';
 import { fmt } from '@/lib/utils';
@@ -19,7 +19,8 @@ export default function BalancesPage() {
   const [transactions, setTransactions] = useState<BalanceTransaction[]>([]);
   const [shareLink, setShareLink] = useState('');
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     fetch(`/api/trips/${tripId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -48,6 +49,13 @@ export default function BalancesPage() {
       })
       .finally(() => setLoading(false));
   }, [tripId]);
+
+  useEffect(() => {
+    loadData();
+    const onVisible = () => { if (document.visibilityState === 'visible') loadData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadData]);
 
   function buildGroupWhatsApp() {
     const lines = transactions.map(

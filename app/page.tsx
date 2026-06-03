@@ -53,7 +53,7 @@ export default function HomePage() {
       const trip = await tripRes.json();
       if (!tripRes.ok) throw new Error(trip.error);
 
-      router.push(`/trip/${trip.id}`);
+      window.location.href = `/trip/${trip.id}`;
     } catch (err) {
       alert('Something went wrong. Please try again.');
       setCreating(false);
