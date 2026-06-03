@@ -20,11 +20,21 @@ export default function TripPage() {
 
   const userId = typeof window !== 'undefined' ? getUserId() : null;
 
-  useEffect(() => {
+  function loadData() {
+    setLoading(true);
     fetch(`/api/trips/${tripId}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false));
+  }
+
+  // Re-fetch every time the page becomes visible (covers back-navigation)
+  useEffect(() => {
+    loadData();
+    const handleVisibility = () => { if (document.visibilityState === 'visible') loadData(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripId]);
 
   if (loading) {
@@ -70,12 +80,21 @@ export default function TripPage() {
               {members.length} member{members.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <button
-            onClick={() => setShowInvite(true)}
-            className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 text-zinc-600 hover:border-zinc-400 transition-colors"
-          >
-            + Invite
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadData}
+              className="text-zinc-400 hover:text-black transition-colors p-1"
+              title="Refresh"
+            >
+              ↻
+            </button>
+            <button
+              onClick={() => setShowInvite(true)}
+              className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 text-zinc-600 hover:border-zinc-400 transition-colors"
+            >
+              + Invite
+            </button>
+          </div>
         </div>
       </header>
 

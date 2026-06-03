@@ -52,7 +52,7 @@ export default function JoinPage() {
       });
       if (!joinRes.ok) throw new Error('Failed to join trip');
 
-      router.push(`/trip/${trip!.id}`);
+      window.location.href = `/trip/${trip!.id}`;
     } catch (err) {
       setJoinError('Something went wrong. Please try again.');
       setJoining(false);

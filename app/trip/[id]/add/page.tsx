@@ -88,7 +88,7 @@ export default function AddExpensePage() {
         body: JSON.stringify({ trip_id: tripId, paid_by: paidBy, description: description.trim(), amount: total, split_type: splitType, splits }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      router.push(`/trip/${tripId}`);
+      window.location.href = `/trip/${tripId}`;
     } catch {
       setError('Failed to save. Try again.');
       setSaving(false);
@@ -188,7 +188,7 @@ export default function AddExpensePage() {
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      router.push(`/trip/${tripId}`);
+      window.location.href = `/trip/${tripId}`;
     } catch {
       setError('Failed to save. Try again.');
       setSaving(false);

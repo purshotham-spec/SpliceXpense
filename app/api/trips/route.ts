@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -13,18 +13,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'name and owner_id are required' }, { status: 400 });
   }
 
-  const { data: trip, error: tripError } = await supabase
+  const sb = getSupabase();
+
+  const { data: trip, error: tripError } = await sb
     .from('trips')
     .insert({ name: name.trim(), currency: currency || 'USD', owner_id })
     .select()
     .single();
 
-  if (tripError) return NextResponse.json({ error: tripError.message }, { status: 500 });
+  if (tripError) {
+    console.error('Create trip error:', tripError);
+    return NextResponse.json({ error: tripError.message }, { status: 500 });
+  }
 
   // Owner is automatically a member
-  await supabase
+  const { error: memberError } = await sb
     .from('trip_members')
     .insert({ trip_id: trip.id, user_id: owner_id });
+
+  if (memberError) {
+    console.error('Add owner as member error:', memberError);
+  }
 
   return NextResponse.json(trip, { status: 201 });
 }

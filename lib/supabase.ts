@@ -12,9 +12,11 @@ export function getSupabase(): SupabaseClient {
   return _client;
 }
 
-// Convenience proxy — use `supabase` like before
+// Proxy that binds every method to the real client so `this` is never lost
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
-    return (getSupabase() as unknown as Record<string | symbol, unknown>)[prop];
+    const client = getSupabase();
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop];
+    return typeof value === 'function' ? (value as Function).bind(client) : value;
   },
 });
