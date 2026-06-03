@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  const splitTotal = Math.round(splits.reduce((s, x) => s + Number(x.amount), 0) * 100);
+  const expenseTotal = Math.round(Number(amount) * 100);
+  if (Math.abs(splitTotal - expenseTotal) > 1) {
+    return NextResponse.json(
+      { error: `Split amounts (${splitTotal / 100}) don't match expense total (${expenseTotal / 100})` },
+      { status: 400 }
+    );
+  }
+
   const sb = getSupabase();
 
   const { data: expense, error: expenseError } = await sb

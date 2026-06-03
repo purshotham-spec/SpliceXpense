@@ -1,5 +1,19 @@
 import type { BalanceTransaction, Expense, ExpenseSplit, TripMember } from './types';
 
+export function distributeEvenly(
+  totalCents: number,
+  memberIds: string[]
+): { user_id: string; amount: number }[] {
+  const n = memberIds.length;
+  if (n === 0) return [];
+  const baseUnits = Math.floor(totalCents / n);
+  const remainder = totalCents - baseUnits * n;
+  return memberIds.map((id, i) => ({
+    user_id: id,
+    amount: (baseUnits + (i < remainder ? 1 : 0)) / 100,
+  }));
+}
+
 export function calculateBalances(
   members: TripMember[],
   expenses: Expense[],

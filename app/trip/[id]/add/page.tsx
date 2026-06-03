@@ -8,6 +8,7 @@ import CameraUpload from '@/components/CameraUpload';
 import MemberPicker from '@/components/MemberPicker';
 import SplitSelector from '@/components/SplitSelector';
 import { useTripContext } from '../context';
+import { distributeEvenly } from '@/lib/balance';
 import type { ParsedReceiptItem } from '@/lib/types';
 
 interface ReceiptLineItem extends ParsedReceiptItem {
@@ -70,13 +71,13 @@ export default function AddExpensePage() {
 
     setError('');
 
-    const splits = activeMembers.map((id) => ({
-      user_id: id,
-      amount:
-        splitType === 'equal'
-          ? Math.round((total / activeMembers.length) * 100) / 100
-          : parseFloat(customSplits[id] || '0'),
-    }));
+    const splits =
+      splitType === 'equal'
+        ? distributeEvenly(Math.round(total * 100), activeMembers)
+        : activeMembers.map((id) => ({
+            user_id: id,
+            amount: parseFloat(customSplits[id] || '0'),
+          }));
 
     saveExpense({
       description: description.trim(),
@@ -147,17 +148,19 @@ export default function AddExpensePage() {
       return;
     }
 
-    const splitMap: Record<string, number> = {};
+    // Distribute each item evenly (penny-accurate) then sum per member
+    const splitMapCents: Record<string, number> = {};
     receiptItems.forEach((item) => {
-      const count = item.assigned_to.length || 1;
-      item.assigned_to.forEach((id) => {
-        splitMap[id] = (splitMap[id] ?? 0) + item.price / count;
+      const itemCents = Math.round(item.price * 100);
+      const shares = distributeEvenly(itemCents, item.assigned_to.length > 0 ? item.assigned_to : allMemberIds);
+      shares.forEach(({ user_id, amount }) => {
+        splitMapCents[user_id] = (splitMapCents[user_id] ?? 0) + Math.round(amount * 100);
       });
     });
 
-    const splits = Object.entries(splitMap).map(([user_id, amt]) => ({
+    const splits = Object.entries(splitMapCents).map(([user_id, cents]) => ({
       user_id,
-      amount: Math.round(amt * 100) / 100,
+      amount: cents / 100,
     }));
 
     const total = Math.round(receiptItems.reduce((s, i) => s + i.price, 0) * 100) / 100;
