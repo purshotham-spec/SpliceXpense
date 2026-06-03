@@ -1,71 +1,43 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { calculateBalances } from '@/lib/balance';
 import { fmt } from '@/lib/utils';
 import BalanceCard from '@/components/BalanceCard';
-import type { Expense, ExpenseSplit, TripMember, BalanceTransaction } from '@/lib/types';
+import { useTripContext } from '../context';
+import type { ExpenseSplit } from '@/lib/types';
 
 export default function BalancesPage() {
   const params = useParams();
   const router = useRouter();
   const tripId = params.id as string;
 
-  const [loading, setLoading] = useState(true);
-  const [tripName, setTripName] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [members, setMembers] = useState<TripMember[]>([]);
-  const [transactions, setTransactions] = useState<BalanceTransaction[]>([]);
-  const [shareLink, setShareLink] = useState('');
+  const { trip, members, expenses, loading } = useTripContext();
 
-  const loadData = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/trips/${tripId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const mems: TripMember[] = data.members ?? [];
-        const expenses: Expense[] = data.expenses ?? [];
-
-        setTripName(data.trip?.name ?? '');
-        setCurrency(data.trip?.currency ?? 'USD');
-        setMembers(mems);
-
-        const allSplits: ExpenseSplit[] = expenses.flatMap((e) => e.splits ?? []);
-        const txns = calculateBalances(mems, expenses, allSplits);
-
-        const memberMap = Object.fromEntries(mems.map((m) => [m.user_id, m.user]));
-        setTransactions(
-          txns.map((t) => ({
-            ...t,
-            from_user: memberMap[t.from_user_id],
-            to_user: memberMap[t.to_user_id],
-          }))
-        );
-
-        if (typeof window !== 'undefined') {
-          setShareLink(`${window.location.origin}/trip/${tripId}`);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [tripId]);
-
-  useEffect(() => {
-    loadData();
-    const onVisible = () => { if (document.visibilityState === 'visible') loadData(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [loadData]);
+  const { transactions, shareLink } = useMemo(() => {
+    const allSplits: ExpenseSplit[] = expenses.flatMap((e) => e.splits ?? []);
+    const txns = calculateBalances(members, expenses, allSplits);
+    const memberMap = Object.fromEntries(members.map((m) => [m.user_id, m.user]));
+    const enriched = txns.map((t) => ({
+      ...t,
+      from_user: memberMap[t.from_user_id],
+      to_user: memberMap[t.to_user_id],
+    }));
+    const link =
+      typeof window !== 'undefined' ? `${window.location.origin}/trip/${tripId}` : '';
+    return { transactions: enriched, shareLink: link };
+  }, [members, expenses, tripId]);
 
   function buildGroupWhatsApp() {
     const lines = transactions.map(
-      (t) => `• ${t.from_user?.name ?? '?'} → ${t.to_user?.name ?? '?'}: ${fmt(t.amount, currency)}`
+      (t) => `• ${t.from_user?.name ?? '?'} → ${t.to_user?.name ?? '?'}: ${fmt(t.amount, trip?.currency ?? 'INR')}`
     );
-    const text = `${tripName} — final splits:\n${lines.join('\n')}\n\nView details: ${shareLink}`;
+    const text = `${trip?.name ?? 'Trip'} — final splits:\n${lines.join('\n')}\n\nView details: ${shareLink}`;
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
   }
 
-  if (loading) {
+  if (loading && !trip) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50">
         <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -78,14 +50,14 @@ export default function BalancesPage() {
       <header className="bg-white border-b border-zinc-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(`/trip/${tripId}`)}
             className="text-zinc-400 hover:text-black transition-colors text-xl leading-none"
           >
             ←
           </button>
           <div>
             <h1 className="font-bold text-base">Balances</h1>
-            <p className="text-xs text-zinc-400">{tripName}</p>
+            <p className="text-xs text-zinc-400">{trip?.name}</p>
           </div>
         </div>
       </header>
@@ -104,13 +76,11 @@ export default function BalancesPage() {
                 <BalanceCard
                   key={i}
                   transaction={t}
-                  currency={currency}
+                  currency={trip?.currency ?? 'INR'}
                   tripId={tripId}
                 />
               ))}
             </div>
-
-            {/* Send all splits at once */}
             <button
               onClick={() => window.open(buildGroupWhatsApp(), '_blank')}
               className="w-full border border-zinc-200 bg-white rounded-xl py-3 text-sm font-medium text-zinc-700 hover:border-zinc-400 transition-colors"
@@ -120,7 +90,6 @@ export default function BalancesPage() {
           </>
         )}
 
-        {/* Member summary */}
         {members.length > 0 && (
           <div className="bg-white rounded-xl p-4">
             <p className="text-xs text-zinc-400 font-medium mb-3">MEMBERS</p>
@@ -133,19 +102,22 @@ export default function BalancesPage() {
                   .filter((t) => t.to_user_id === m.user_id)
                   .reduce((s, t) => s + t.amount, 0);
                 const net = getsBack - owes;
-
                 return (
                   <div key={m.id} className="flex items-center justify-between">
                     <span className="text-sm">{m.user?.name}</span>
                     <span
                       className={`text-sm font-medium ${
-                        net > 0.01 ? 'text-green-600' : net < -0.01 ? 'text-red-500' : 'text-zinc-400'
+                        net > 0.01
+                          ? 'text-green-600'
+                          : net < -0.01
+                            ? 'text-red-500'
+                            : 'text-zinc-400'
                       }`}
                     >
                       {net > 0.01
-                        ? `+${fmt(net, currency)}`
+                        ? `+${fmt(net, trip?.currency ?? 'INR')}`
                         : net < -0.01
-                          ? `-${fmt(Math.abs(net), currency)}`
+                          ? `-${fmt(Math.abs(net), trip?.currency ?? 'INR')}`
                           : 'settled'}
                     </span>
                   </div>

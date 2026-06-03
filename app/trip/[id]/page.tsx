@@ -1,41 +1,33 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { getUserId } from '@/lib/user';
-import { getCurrencySymbol, fmt } from '@/lib/utils';
+import { fmt } from '@/lib/utils';
 import ExpenseCard from '@/components/ExpenseCard';
-import type { TripData } from '@/lib/types';
+import { useTripContext } from './context';
 
 export default function TripPage() {
   const params = useParams();
   const router = useRouter();
   const tripId = params.id as string;
 
-  const [data, setData] = useState<TripData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { trip, members, expenses, loading, saveError, clearSaveError } = useTripContext();
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const userId = typeof window !== 'undefined' ? getUserId() : null;
 
-  const loadData = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/trips/${tripId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [tripId]);
-
+  // Show save error that originated from the add page
   useEffect(() => {
-    loadData();
-    const onVisible = () => { if (document.visibilityState === 'visible') loadData(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [loadData]);
+    if (saveError) {
+      const t = setTimeout(clearSaveError, 5000);
+      return () => clearTimeout(t);
+    }
+  }, [saveError, clearSaveError]);
 
-  if (loading) {
+  if (loading && !trip) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50">
         <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
@@ -43,7 +35,7 @@ export default function TripPage() {
     );
   }
 
-  if (!data?.trip) {
+  if (!trip) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-zinc-50">
         <p className="text-zinc-500 text-sm">Trip not found</p>
@@ -52,10 +44,8 @@ export default function TripPage() {
     );
   }
 
-  const { trip, expenses, members } = data;
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const currency = trip.currency;
-
   const inviteUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}/join/${trip.invite_code}`
@@ -69,6 +59,13 @@ export default function TripPage() {
 
   return (
     <main className="min-h-screen bg-zinc-50">
+      {/* Save error banner */}
+      {saveError && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-red-500 text-white text-sm text-center py-2 px-4">
+          {saveError}
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-zinc-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
@@ -79,13 +76,6 @@ export default function TripPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={loadData}
-              className="text-zinc-400 hover:text-black transition-colors p-1"
-              title="Refresh"
-            >
-              ↻
-            </button>
             <button
               onClick={() => setShowInvite(true)}
               className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 text-zinc-600 hover:border-zinc-400 transition-colors"
@@ -190,12 +180,14 @@ export default function TripPage() {
                 {copied ? '✓ Copied!' : 'Copy invite link'}
               </button>
               <button
-                onClick={() => {
+                onClick={() =>
                   window.open(
-                    `https://wa.me/?text=${encodeURIComponent(`Join ${trip.name} on Splice 💸\n${inviteUrl}`)}`,
+                    `https://wa.me/?text=${encodeURIComponent(
+                      `Join ${trip.name} on Splice 💸\n${inviteUrl}`
+                    )}`,
                     '_blank'
-                  );
-                }}
+                  )
+                }
                 className="w-full bg-[#25D366] text-white rounded-xl py-2.5 text-sm font-medium active:opacity-80"
               >
                 Share on WhatsApp

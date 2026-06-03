@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useId } from 'react';
+import { useState, useId } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getUserId } from '@/lib/user';
 import { fmt } from '@/lib/utils';
 import CameraUpload from '@/components/CameraUpload';
 import MemberPicker from '@/components/MemberPicker';
 import SplitSelector from '@/components/SplitSelector';
-import type { TripMember, ParsedReceiptItem } from '@/lib/types';
+import { useTripContext } from '../context';
+import type { ParsedReceiptItem } from '@/lib/types';
 
 interface ReceiptLineItem extends ParsedReceiptItem {
   uid: string;
@@ -22,77 +23,71 @@ export default function AddExpensePage() {
   const tripId = params.id as string;
   const uid = useId();
 
-  const [members, setMembers] = useState<TripMember[]>([]);
-  const [currency, setCurrency] = useState('USD');
+  const { trip, members, saveExpense } = useTripContext();
+  const currency = trip?.currency ?? 'INR';
+  const userId = typeof window !== 'undefined' ? getUserId() : null;
+
   const [flow, setFlow] = useState<Flow>('manual');
 
-  // Manual form state
+  // Manual form
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [paidBy, setPaidBy] = useState('');
+  const [paidBy, setPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>(() =>
+    members.map((m) => m.user_id)
+  );
   const [customSplits, setCustomSplits] = useState<Record<string, string>>({});
 
-  // Receipt flow state
+  // Receipt flow
   const [scanning, setScanning] = useState(false);
   const [receiptItems, setReceiptItems] = useState<ReceiptLineItem[]>([]);
   const [receiptDescription, setReceiptDescription] = useState('');
-  const [receiptPaidBy, setReceiptPaidBy] = useState('');
+  const [receiptPaidBy, setReceiptPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
 
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const userId = typeof window !== 'undefined' ? getUserId() : null;
-
-  useEffect(() => {
-    fetch(`/api/trips/${tripId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const mems: TripMember[] = data.members ?? [];
-        setMembers(mems);
-        setCurrency(data.trip?.currency ?? 'USD');
-        const allIds = mems.map((m) => m.user_id);
-        setSelectedMembers(allIds);
-        const defaultPayer = mems.find((m) => m.user_id === userId)?.user_id ?? mems[0]?.user_id ?? '';
-        setPaidBy(defaultPayer);
-        setReceiptPaidBy(defaultPayer);
-      });
-  }, [tripId, userId]);
+  // Sync defaults once members load
+  const defaultPayer = members.find((m) => m.user_id === userId)?.user_id ?? members[0]?.user_id ?? '';
+  const allMemberIds = members.map((m) => m.user_id);
 
   // ── Manual flow ──────────────────────────────────────────────
-  async function saveManual() {
-    if (!description.trim() || !amount || !paidBy || selectedMembers.length === 0) {
-      setError('Fill in all fields and select at least one person to split with.');
+  function handleManualSave() {
+    const total = parseFloat(amount);
+    const activePaidBy = paidBy || defaultPayer;
+    const activeMembers = selectedMembers.length > 0 ? selectedMembers : allMemberIds;
+
+    if (!description.trim() || isNaN(total) || total <= 0 || !activePaidBy) {
+      setError('Fill in description, amount, and who paid.');
       return;
     }
-    const total = parseFloat(amount);
-    if (isNaN(total) || total <= 0) { setError('Enter a valid amount.'); return; }
+    if (activeMembers.length === 0) {
+      setError('Select at least one person to split with.');
+      return;
+    }
 
-    const splits = selectedMembers.map((id) => ({
+    setError('');
+
+    const splits = activeMembers.map((id) => ({
       user_id: id,
       amount:
         splitType === 'equal'
-          ? Math.round((total / selectedMembers.length) * 100) / 100
+          ? Math.round((total / activeMembers.length) * 100) / 100
           : parseFloat(customSplits[id] || '0'),
     }));
 
-    setSaving(true);
-    setError('');
-    try {
-      const res = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip_id: tripId, paid_by: paidBy, description: description.trim(), amount: total, split_type: splitType, splits }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      window.location.href = `/trip/${tripId}`;
-    } catch {
-      setError('Failed to save. Try again.');
-      setSaving(false);
-    }
+    saveExpense({
+      description: description.trim(),
+      amount: total,
+      split_type: splitType,
+      paid_by: activePaidBy,
+      splits,
+    });
+
+    // Navigate instantly — expense already in list optimistically
+    router.push(`/trip/${tripId}`);
   }
 
   // ── Receipt flow ──────────────────────────────────────────────
@@ -108,12 +103,12 @@ export default function AddExpensePage() {
       const items: ReceiptLineItem[] = (json.items as ParsedReceiptItem[]).map((item, i) => ({
         ...item,
         uid: `${uid}-${i}`,
-        assigned_to: members.map((m) => m.user_id),
+        assigned_to: allMemberIds,
       }));
       setReceiptItems(items);
       setFlow('receipt');
     } catch {
-      setError('Could not read receipt. Try a clearer photo, or add items manually.');
+      setError('Could not read receipt. Try a clearer photo or add items manually.');
     } finally {
       setScanning(false);
     }
@@ -135,23 +130,19 @@ export default function AddExpensePage() {
   }
 
   function addManualItem() {
-    if (!newItemName.trim() || !newItemPrice) return;
     const price = parseFloat(newItemPrice);
-    if (isNaN(price) || price <= 0) return;
+    if (!newItemName.trim() || isNaN(price) || price <= 0) return;
     setReceiptItems((prev) => [
       ...prev,
-      { uid: `manual-${Date.now()}`, name: newItemName.trim(), price, assigned_to: members.map((m) => m.user_id) },
+      { uid: `manual-${Date.now()}`, name: newItemName.trim(), price, assigned_to: allMemberIds },
     ]);
     setNewItemName('');
     setNewItemPrice('');
   }
 
-  function removeItem(itemUid: string) {
-    setReceiptItems((prev) => prev.filter((i) => i.uid !== itemUid));
-  }
-
-  async function saveReceipt() {
-    if (!receiptDescription.trim() || !receiptPaidBy || receiptItems.length === 0) {
+  function handleReceiptSave() {
+    const activePaidBy = receiptPaidBy || defaultPayer;
+    if (!receiptDescription.trim() || !activePaidBy || receiptItems.length === 0) {
       setError('Add a description, select who paid, and keep at least one item.');
       return;
     }
@@ -164,45 +155,45 @@ export default function AddExpensePage() {
       });
     });
 
-    const splits = Object.entries(splitMap).map(([user_id, amount]) => ({
+    const splits = Object.entries(splitMap).map(([user_id, amt]) => ({
       user_id,
-      amount: Math.round(amount * 100) / 100,
+      amount: Math.round(amt * 100) / 100,
     }));
 
-    const total = receiptItems.reduce((s, i) => s + i.price, 0);
+    const total = Math.round(receiptItems.reduce((s, i) => s + i.price, 0) * 100) / 100;
 
-    setSaving(true);
     setError('');
-    try {
-      const res = await fetch('/api/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          trip_id: tripId,
-          paid_by: receiptPaidBy,
-          description: receiptDescription.trim(),
-          amount: Math.round(total * 100) / 100,
-          split_type: 'items',
-          splits,
-          receipt_items: receiptItems.map(({ name, price, assigned_to }) => ({ name, price, assigned_to })),
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      window.location.href = `/trip/${tripId}`;
-    } catch {
-      setError('Failed to save. Try again.');
-      setSaving(false);
-    }
+
+    saveExpense({
+      description: receiptDescription.trim(),
+      amount: total,
+      split_type: 'items',
+      paid_by: activePaidBy,
+      splits,
+      receipt_items: receiptItems.map(({ name, price, assigned_to }) => ({
+        name,
+        price,
+        assigned_to,
+      })),
+    });
+
+    router.push(`/trip/${tripId}`);
   }
 
   const receiptTotal = receiptItems.reduce((s, i) => s + i.price, 0);
+  const activePaidBy = paidBy || defaultPayer;
+  const activeReceiptPaidBy = receiptPaidBy || defaultPayer;
+  const activeSelectedMembers =
+    selectedMembers.length > 0 ? selectedMembers : allMemberIds;
 
   return (
     <main className="min-h-screen bg-zinc-50">
       <header className="bg-white border-b border-zinc-100 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
           <button
-            onClick={() => flow === 'receipt' ? setFlow('manual') : router.back()}
+            onClick={() =>
+              flow === 'receipt' ? setFlow('manual') : router.push(`/trip/${tripId}`)
+            }
             className="text-zinc-400 hover:text-black transition-colors text-xl leading-none"
           >
             ←
@@ -242,46 +233,42 @@ export default function AddExpensePage() {
             </div>
 
             {members.length > 0 && (
-              <MemberPicker
-                members={members}
-                selectedId={paidBy}
-                onChange={setPaidBy}
-                label="PAID BY"
-              />
-            )}
-
-            {members.length > 0 && (
-              <div>
-                <p className="text-xs text-zinc-400 font-medium mb-2">SPLIT BETWEEN</p>
-                <SplitSelector
+              <>
+                <MemberPicker
                   members={members}
-                  totalAmount={parseFloat(amount) || 0}
-                  currency={currency}
-                  splitType={splitType}
-                  onSplitTypeChange={setSplitType}
-                  selectedMembers={selectedMembers}
-                  onSelectedMembersChange={setSelectedMembers}
-                  customSplits={customSplits}
-                  onCustomSplitsChange={setCustomSplits}
+                  selectedId={activePaidBy}
+                  onChange={setPaidBy}
+                  label="PAID BY"
                 />
-              </div>
+                <div>
+                  <p className="text-xs text-zinc-400 font-medium mb-2">SPLIT BETWEEN</p>
+                  <SplitSelector
+                    members={members}
+                    totalAmount={parseFloat(amount) || 0}
+                    currency={currency}
+                    splitType={splitType}
+                    onSplitTypeChange={setSplitType}
+                    selectedMembers={activeSelectedMembers}
+                    onSelectedMembersChange={setSelectedMembers}
+                    customSplits={customSplits}
+                    onCustomSplitsChange={setCustomSplits}
+                  />
+                </div>
+              </>
             )}
 
             <div className="space-y-2 pt-2">
               <button
-                onClick={saveManual}
-                disabled={saving}
-                className="w-full bg-black text-white rounded-xl py-3 text-sm font-medium disabled:opacity-40 active:opacity-80"
+                onClick={handleManualSave}
+                className="w-full bg-black text-white rounded-xl py-3 text-sm font-medium active:opacity-80"
               >
-                {saving ? 'Saving…' : 'Add expense'}
+                Add expense
               </button>
-
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-px bg-zinc-200" />
                 <span className="text-xs text-zinc-400">or</span>
                 <div className="flex-1 h-px bg-zinc-200" />
               </div>
-
               <CameraUpload onUpload={handleReceiptUpload} loading={scanning} />
             </div>
           </>
@@ -301,14 +288,13 @@ export default function AddExpensePage() {
               {members.length > 0 && (
                 <MemberPicker
                   members={members}
-                  selectedId={receiptPaidBy}
+                  selectedId={activeReceiptPaidBy}
                   onChange={setReceiptPaidBy}
                   label="PAID BY"
                 />
               )}
             </div>
 
-            {/* Line items */}
             <div>
               <p className="text-xs text-zinc-400 font-medium mb-2">ITEMS — tap names to assign</p>
               <div className="space-y-2">
@@ -319,8 +305,10 @@ export default function AddExpensePage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold">{fmt(item.price, currency)}</span>
                         <button
-                          onClick={() => removeItem(item.uid)}
-                          className="text-zinc-300 hover:text-red-400 transition-colors text-base leading-none"
+                          onClick={() =>
+                            setReceiptItems((prev) => prev.filter((i) => i.uid !== item.uid))
+                          }
+                          className="text-zinc-300 hover:text-red-400 transition-colors text-lg leading-none"
                         >
                           ×
                         </button>
@@ -344,7 +332,6 @@ export default function AddExpensePage() {
                   </div>
                 ))}
 
-                {/* Add item manually */}
                 <div className="bg-white rounded-xl p-3 flex gap-2">
                   <input
                     type="text"
@@ -365,7 +352,7 @@ export default function AddExpensePage() {
                   <button
                     onClick={addManualItem}
                     disabled={!newItemName.trim() || !newItemPrice}
-                    className="text-sm font-medium text-black disabled:text-zinc-300 transition-colors"
+                    className="text-sm font-medium text-black disabled:text-zinc-300"
                   >
                     + Add
                   </button>
@@ -373,18 +360,17 @@ export default function AddExpensePage() {
               </div>
             </div>
 
-            {/* Total */}
             <div className="flex items-center justify-between border-t border-zinc-200 pt-3">
               <span className="text-sm text-zinc-500">Total</span>
               <span className="text-base font-bold">{fmt(receiptTotal, currency)}</span>
             </div>
 
             <button
-              onClick={saveReceipt}
-              disabled={saving || receiptItems.length === 0}
+              onClick={handleReceiptSave}
+              disabled={receiptItems.length === 0}
               className="w-full bg-black text-white rounded-xl py-3 text-sm font-medium disabled:opacity-40 active:opacity-80"
             >
-              {saving ? 'Saving…' : 'Save expense'}
+              Save expense
             </button>
           </>
         )}

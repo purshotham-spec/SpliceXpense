@@ -66,6 +66,19 @@ export interface ParsedReceiptItem {
   price: number;
 }
 
+export interface OptimisticExpense extends Expense {
+  pending?: boolean;
+}
+
+export interface SaveExpenseInput {
+  description: string;
+  amount: number;
+  split_type: 'equal' | 'custom' | 'items';
+  paid_by: string;
+  splits: { user_id: string; amount: number }[];
+  receipt_items?: { name: string; price: number; assigned_to: string[] }[];
+}
+
 export interface TripData {
   trip: Trip;
   members: TripMember[];
