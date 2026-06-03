@@ -16,8 +16,7 @@ import type {
   TripMember,
 } from '@/lib/types';
 
-// Poll interval while tab is visible and no saves are in flight
-const POLL_MS = 5000;
+const POLL_MS = 3000;
 
 interface TripContextValue {
   trip: Trip | null;
@@ -39,21 +38,33 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Refs so interval callbacks always see latest values without re-subscribing
   const memberRef = useRef<TripMember[]>([]);
-  const pendingRef = useRef(false);  // true while any optimistic item is in flight
+  const pendingRef = useRef(false);
   memberRef.current = members;
 
   const reload = useCallback(() => {
     fetch(`/api/trips/${tripId}`)
       .then((r) => r.json())
       .then((d) => {
+        // Always update trip and members — new joiners must appear immediately
         setTrip(d.trip ?? null);
         setMembers(d.members ?? []);
-        // Preserve any still-pending optimistic items so they don't flicker
+
+        // For expenses: keep optimistic items so they don't flicker during saves
         setExpenses((prev) => {
           const pending = prev.filter((e) => e.pending);
-          return [...pending, ...(d.expenses ?? [])];
+          const fresh = d.expenses ?? [];
+          // If a pending item now exists in DB (matched by description+amount+payer), drop the optimistic copy
+          const stillPending = pending.filter(
+            (p) =>
+              !fresh.some(
+                (r: OptimisticExpense) =>
+                  r.description === p.description &&
+                  Number(r.amount) === Number(p.amount) &&
+                  r.paid_by === p.paid_by
+              )
+          );
+          return [...stillPending, ...fresh];
         });
       })
       .finally(() => setLoading(false));
@@ -65,7 +76,7 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
     reload();
   }, [reload]);
 
-  // Re-fetch when tab regains focus
+  // Reload immediately when tab becomes visible
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') reload();
@@ -74,15 +85,12 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [reload]);
 
-  // Poll every 5 s while tab is visible and no save is in flight
-  // This keeps all party members' screens in sync automatically
+  // Poll every 3s regardless of pending saves — members must sync fast
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible' && !pendingRef.current) {
-        reload();
-      }
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') reload();
     }, POLL_MS);
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, [reload]);
 
   function saveExpense(data: SaveExpenseInput) {
