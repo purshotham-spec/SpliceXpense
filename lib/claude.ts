@@ -2,7 +2,7 @@ import type { ParsedReceiptItem } from './types';
 
 // Uses OpenRouter — swap OPENROUTER_MODEL in .env.local to change model
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'google/gemini-flash-1.5';
+const DEFAULT_MODEL = 'google/gemini-2.5-flash-lite';
 
 export async function parseReceiptImage(
   base64: string,

@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
   const bytes = await image.arrayBuffer();
   const base64 = Buffer.from(bytes).toString('base64');
 
-  const items = await parseReceiptImage(base64, mediaType);
-  return NextResponse.json({ items });
+  try {
+    const items = await parseReceiptImage(base64, mediaType);
+    return NextResponse.json({ items });
+  } catch (err) {
+    console.error('Receipt scan error:', err);
+    const message = err instanceof Error ? err.message : 'Scan failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
