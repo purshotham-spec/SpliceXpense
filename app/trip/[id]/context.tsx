@@ -16,6 +16,9 @@ import type {
   TripMember,
 } from '@/lib/types';
 
+// Poll interval while tab is visible and no saves are in flight
+const POLL_MS = 5000;
+
 interface TripContextValue {
   trip: Trip | null;
   members: TripMember[];
@@ -35,33 +38,57 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
   const [expenses, setExpenses] = useState<OptimisticExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Refs so interval callbacks always see latest values without re-subscribing
   const memberRef = useRef<TripMember[]>([]);
+  const pendingRef = useRef(false);  // true while any optimistic item is in flight
   memberRef.current = members;
 
   const reload = useCallback(() => {
-    setLoading(true);
     fetch(`/api/trips/${tripId}`)
       .then((r) => r.json())
       .then((d) => {
         setTrip(d.trip ?? null);
         setMembers(d.members ?? []);
-        setExpenses(d.expenses ?? []);
+        // Preserve any still-pending optimistic items so they don't flicker
+        setExpenses((prev) => {
+          const pending = prev.filter((e) => e.pending);
+          return [...pending, ...(d.expenses ?? [])];
+        });
       })
       .finally(() => setLoading(false));
   }, [tripId]);
 
+  // Initial load
   useEffect(() => {
+    setLoading(true);
     reload();
-    const onVisible = () => { if (document.visibilityState === 'visible') reload(); };
+  }, [reload]);
+
+  // Re-fetch when tab regains focus
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [reload]);
+
+  // Poll every 5 s while tab is visible and no save is in flight
+  // This keeps all party members' screens in sync automatically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && !pendingRef.current) {
+        reload();
+      }
+    }, POLL_MS);
+    return () => clearInterval(interval);
   }, [reload]);
 
   function saveExpense(data: SaveExpenseInput) {
     const tempId = `pending-${Date.now()}`;
     const payer = memberRef.current.find((m) => m.user_id === data.paid_by)?.user;
 
-    // Add optimistic item immediately
     const optimistic: OptimisticExpense = {
       id: tempId,
       trip_id: tripId,
@@ -82,9 +109,9 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
       })),
     };
 
+    pendingRef.current = true;
     setExpenses((prev) => [optimistic, ...prev]);
 
-    // Save in background
     fetch('/api/expenses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,9 +119,11 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
     })
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json()).error ?? 'Save failed');
-        reload(); // swap optimistic for real data silently
+        pendingRef.current = false;
+        reload();
       })
       .catch((err: Error) => {
+        pendingRef.current = false;
         setExpenses((prev) => prev.filter((e) => e.id !== tempId));
         setSaveError(err.message ?? 'Failed to save expense. Please try again.');
       });
