@@ -165,9 +165,26 @@ export default function TripPage() {
             {members.map((m) => (
               <span
                 key={m.id}
-                className="flex-shrink-0 bg-white border border-zinc-200 rounded-full px-3 py-1 text-xs text-zinc-500"
+                className="flex-shrink-0 flex items-center gap-1 bg-white border border-zinc-200 rounded-full pl-3 pr-2 py-1 text-xs text-zinc-500"
               >
                 {m.user?.name}
+                {isOwner && m.user_id !== userId && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Remove ${m.user?.name} from this trip?`)) return;
+                      const res = await fetch(`/api/trips/${tripId}/members/${m.user_id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ requester_id: userId }),
+                      });
+                      if (res.ok) window.location.reload();
+                      else alert('Failed to remove member.');
+                    }}
+                    className="text-zinc-300 hover:text-red-400 transition-colors leading-none ml-0.5"
+                  >
+                    ×
+                  </button>
+                )}
               </span>
             ))}
           </div>
