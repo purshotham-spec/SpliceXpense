@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { setUserId, setUserName } from '@/lib/user';
 
 const CURRENCIES = [
+  { code: 'INR', label: 'INR — Indian Rupee (₹)' },
   { code: 'USD', label: 'USD — US Dollar ($)' },
   { code: 'EUR', label: 'EUR — Euro (€)' },
   { code: 'GBP', label: 'GBP — British Pound (£)' },
-  { code: 'INR', label: 'INR — Indian Rupee (₹)' },
   { code: 'AED', label: 'AED — UAE Dirham' },
   { code: 'SGD', label: 'SGD — Singapore Dollar' },
   { code: 'JPY', label: 'JPY — Japanese Yen (¥)' },
@@ -23,7 +23,7 @@ export default function HomePage() {
 
   const [ownerName, setOwnerName] = useState('');
   const [tripName, setTripName] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('INR');
   const [creating, setCreating] = useState(false);
 
   const [inviteCode, setInviteCode] = useState('');
