@@ -34,7 +34,7 @@ export async function parseReceiptImage(
             },
             {
               type: 'text',
-              text: 'Extract all individual line items from this receipt. Return ONLY a JSON array: [{"name":"item name","price":0.00}]. Individual items only — no subtotals, taxes, tips, or grand total. Valid JSON only, no markdown.',
+              text: 'Extract every charged line from this receipt as individual items. Include food/drink items AND any taxes, GST, service charge, VAT, tips, or fees shown on the bill — each as a separate entry. Do NOT include subtotal or grand total lines. Return ONLY a JSON array: [{"name":"item name","price":0.00}]. Valid JSON only, no markdown, no explanation.',
             },
           ],
         },
@@ -49,7 +49,7 @@ export async function parseReceiptImage(
 
   const json = await res.json();
   const text: string = json.choices?.[0]?.message?.content ?? '';
-  const match = text.match(/\[[\s\S]*?\]/);
+  const match = text.match(/\[[\s\S]*\]/);
   if (!match) return [];
 
   try {

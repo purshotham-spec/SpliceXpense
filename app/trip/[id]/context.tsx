@@ -25,6 +25,7 @@ interface TripContextValue {
   loading: boolean;
   reload: () => void;
   saveExpense: (data: SaveExpenseInput) => void;
+  deleteExpense: (id: string, userId: string) => Promise<void>;
   saveError: string | null;
   clearSaveError: () => void;
 }
@@ -137,6 +138,16 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
       });
   }
 
+  async function deleteExpense(id: string, userId: string) {
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+    await fetch(`/api/expenses/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, trip_owner_id: trip?.owner_id }),
+    });
+    reload();
+  }
+
   return (
     <TripContext.Provider
       value={{
@@ -146,6 +157,7 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
         loading,
         reload,
         saveExpense,
+        deleteExpense,
         saveError,
         clearSaveError: () => setSaveError(null),
       }}

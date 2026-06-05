@@ -13,7 +13,7 @@ export default function TripPage() {
   const router = useRouter();
   const tripId = params.id as string;
 
-  const { trip, members, expenses, loading, saveError, clearSaveError } = useTripContext();
+  const { trip, members, expenses, loading, saveError, clearSaveError, deleteExpense } = useTripContext();
   const [showInvite, setShowInvite] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -209,6 +209,8 @@ export default function TripPage() {
                 expense={expense}
                 currency={currency}
                 currentUserId={userId ?? ''}
+                tripOwnerId={trip.owner_id ?? undefined}
+                onDelete={(id) => deleteExpense(id, userId ?? '')}
               />
             ))}
           </div>

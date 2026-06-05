@@ -5,11 +5,14 @@ interface Props {
   expense: OptimisticExpense;
   currency: string;
   currentUserId: string;
+  tripOwnerId?: string;
+  onDelete?: (id: string) => void;
 }
 
-export default function ExpenseCard({ expense, currency, currentUserId }: Props) {
+export default function ExpenseCard({ expense, currency, currentUserId, tripOwnerId, onDelete }: Props) {
   const myShare = expense.splits?.find((s) => s.user_id === currentUserId)?.amount;
   const splitCount = expense.splits?.length ?? 0;
+  const canDelete = !expense.pending && onDelete && (currentUserId === expense.paid_by || currentUserId === tripOwnerId);
 
   return (
     <div
@@ -33,10 +36,22 @@ export default function ExpenseCard({ expense, currency, currentUserId }: Props)
           )}
         </p>
       </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-sm font-bold text-black">{fmt(expense.amount, currency)}</p>
-        {!expense.pending && myShare !== undefined && (
-          <p className="text-xs text-zinc-400">you: {fmt(myShare, currency)}</p>
+      <div className="text-right flex-shrink-0 flex items-center gap-2">
+        <div>
+          <p className="text-sm font-bold text-black">{fmt(expense.amount, currency)}</p>
+          {!expense.pending && myShare !== undefined && (
+            <p className="text-xs text-zinc-400">you: {fmt(myShare, currency)}</p>
+          )}
+        </div>
+        {canDelete && (
+          <button
+            onClick={() => {
+              if (confirm(`Delete "${expense.description}"?`)) onDelete(expense.id);
+            }}
+            className="text-zinc-300 hover:text-red-400 transition-colors text-xl leading-none ml-1"
+          >
+            ×
+          </button>
         )}
       </div>
     </div>
