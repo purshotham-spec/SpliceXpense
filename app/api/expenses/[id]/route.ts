@@ -22,7 +22,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   const body = await req.json();
-  const { user_id, trip_owner_id, description, amount, split_type, paid_by, expense_date, splits } = body;
+  const { user_id, trip_owner_id, description, amount, split_type, paid_by, expense_date, day_id, splits } = body;
   const sb = getSupabase();
 
   const { data: expense } = await sb.from('expenses').select('paid_by').eq('id', params.id).single();
@@ -39,7 +39,7 @@ export async function PUT(
 
   const { error: updateError } = await sb
     .from('expenses')
-    .update({ description, amount, split_type, paid_by, expense_date: expense_date ?? null })
+    .update({ description, amount, split_type, paid_by, expense_date: expense_date ?? null, day_id: day_id ?? null })
     .eq('id', params.id);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 

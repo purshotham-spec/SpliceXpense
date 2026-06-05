@@ -19,13 +19,14 @@ interface ExpenseBody {
   amount: number;
   split_type: 'equal' | 'custom' | 'items';
   expense_date?: string;
+  day_id?: string | null;
   splits: SplitInput[];
   receipt_items?: ReceiptItemInput[];
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as ExpenseBody;
-  const { trip_id, paid_by, description, amount, split_type, expense_date, splits, receipt_items } = body;
+  const { trip_id, paid_by, description, amount, split_type, expense_date, day_id, splits, receipt_items } = body;
 
   if (!trip_id || !paid_by || !description || !amount || !splits?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { data: expense, error: expenseError } = await sb
     .from('expenses')
-    .insert({ trip_id, paid_by, description, amount, split_type, expense_date: expense_date ?? null })
+    .insert({ trip_id, paid_by, description, amount, split_type, expense_date: expense_date ?? null, day_id: day_id ?? null })
     .select()
     .single();
 

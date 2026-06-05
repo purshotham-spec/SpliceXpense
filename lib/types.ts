@@ -14,6 +14,14 @@ export interface Trip {
   created_at: string;
 }
 
+export interface TripDay {
+  id: string;
+  trip_id: string;
+  name: string;
+  date?: string | null;
+  created_at: string;
+}
+
 export interface TripMember {
   id: string;
   trip_id: string;
@@ -49,6 +57,7 @@ export interface Expense {
   receipt_url?: string | null;
   created_at: string;
   expense_date?: string | null;
+  day_id?: string | null;
   payer?: User;
   splits?: ExpenseSplit[];
   receipt_items?: ReceiptItem[];
@@ -77,6 +86,7 @@ export interface SaveExpenseInput {
   split_type: 'equal' | 'custom' | 'items';
   paid_by: string;
   expense_date?: string;
+  day_id?: string | null;
   splits: { user_id: string; amount: number }[];
   receipt_items?: { name: string; price: number; assigned_to: string[] }[];
 }

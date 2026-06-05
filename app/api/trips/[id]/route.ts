@@ -26,7 +26,7 @@ export async function GET(
   const { id } = params;
   const sb = getSupabase();
 
-  const [tripResult, membersResult, expensesResult] = await Promise.all([
+  const [tripResult, membersResult, expensesResult, daysResult] = await Promise.all([
     sb.from('trips').select('*').eq('id', id).single(),
     sb
       .from('trip_members')
@@ -38,6 +38,11 @@ export async function GET(
       .select('*, payer:users!paid_by(*), splits:expense_splits(*, user:users!user_id(*))')
       .eq('trip_id', id)
       .order('created_at', { ascending: false }),
+    sb
+      .from('trip_days')
+      .select('*')
+      .eq('trip_id', id)
+      .order('created_at'),
   ]);
 
   if (tripResult.error) {
@@ -45,19 +50,12 @@ export async function GET(
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
   }
 
-  if (membersResult.error) {
-    console.error('Members fetch error:', membersResult.error);
-  }
-
-  if (expensesResult.error) {
-    console.error('Expenses fetch error:', expensesResult.error);
-  }
-
   return NextResponse.json(
     {
       trip: tripResult.data,
       members: membersResult.data ?? [],
       expenses: expensesResult.data ?? [],
+      days: daysResult.data ?? [],
     },
     { headers: { 'Cache-Control': 'no-store' } }
   );

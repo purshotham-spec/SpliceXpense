@@ -14,7 +14,7 @@ export default function EditExpensePage() {
   const tripId = params.id as string;
   const expenseId = params.expenseId as string;
 
-  const { trip, members, reload } = useTripContext();
+  const { trip, members, days, reload } = useTripContext();
   const currency = trip?.currency ?? 'INR';
   const userId = typeof window !== 'undefined' ? getUserId() : null;
 
@@ -25,6 +25,7 @@ export default function EditExpensePage() {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState('');
+  const [dayId, setDayId] = useState('');
   const [paidBy, setPaidBy] = useState('');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -40,6 +41,7 @@ export default function EditExpensePage() {
         setAmount(String(data.amount));
         const d = new Date(); const localToday = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         setExpenseDate(data.expense_date ?? localToday);
+        setDayId(data.day_id ?? '');
         setPaidBy(data.paid_by);
         const type = data.split_type === 'equal' ? 'equal' : 'custom';
         setSplitType(type);
@@ -92,6 +94,7 @@ export default function EditExpensePage() {
         split_type: splitType,
         paid_by: activePaidBy,
         expense_date: expenseDate,
+        day_id: dayId || null,
         splits,
       }),
     });
@@ -160,6 +163,24 @@ export default function EditExpensePage() {
             />
           </div>
         </div>
+
+        {days.length > 0 && (
+          <div>
+            <p className="text-xs text-zinc-400 font-medium mb-2">DAY (OPTIONAL)</p>
+            <select
+              value={dayId}
+              onChange={(e) => setDayId(e.target.value)}
+              className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white text-zinc-700"
+            >
+              <option value="">No day</option>
+              {days.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.date ? ` · ${new Date(d.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {members.length > 0 && (
           <>

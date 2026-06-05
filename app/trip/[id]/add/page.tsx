@@ -24,7 +24,7 @@ export default function AddExpensePage() {
   const tripId = params.id as string;
   const uid = useId();
 
-  const { trip, members, saveExpense } = useTripContext();
+  const { trip, members, days, saveExpense } = useTripContext();
   const currency = trip?.currency ?? 'INR';
   const userId = typeof window !== 'undefined' ? getUserId() : null;
 
@@ -34,6 +34,7 @@ export default function AddExpensePage() {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; });
+  const [dayId, setDayId] = useState('');
   const [paidBy, setPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>(() =>
@@ -87,6 +88,7 @@ export default function AddExpensePage() {
       split_type: splitType,
       paid_by: activePaidBy,
       expense_date: expenseDate,
+      day_id: dayId || null,
       splits,
     });
 
@@ -246,6 +248,24 @@ export default function AddExpensePage() {
                 />
               </div>
             </div>
+
+            {days.length > 0 && (
+              <div>
+                <p className="text-xs text-zinc-400 font-medium mb-2">DAY (OPTIONAL)</p>
+                <select
+                  value={dayId}
+                  onChange={(e) => setDayId(e.target.value)}
+                  className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white text-zinc-700"
+                >
+                  <option value="">No day</option>
+                  {days.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}{d.date ? ` · ${new Date(d.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {members.length > 0 && (
               <>
