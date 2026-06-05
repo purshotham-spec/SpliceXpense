@@ -33,7 +33,7 @@ export default function AddExpensePage() {
   // Manual form
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expenseDate, setExpenseDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; });
   const [paidBy, setPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>(() =>
@@ -45,7 +45,7 @@ export default function AddExpensePage() {
   const [scanning, setScanning] = useState(false);
   const [receiptItems, setReceiptItems] = useState<ReceiptLineItem[]>([]);
   const [receiptDescription, setReceiptDescription] = useState('');
-  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [receiptDate, setReceiptDate] = useState(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; });
   const [receiptPaidBy, setReceiptPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');

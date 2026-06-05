@@ -38,7 +38,8 @@ export default function EditExpensePage() {
         if (data.error) { setError('Expense not found.'); return; }
         setDescription(data.description);
         setAmount(String(data.amount));
-        setExpenseDate(data.expense_date ?? new Date().toISOString().slice(0, 10));
+        const d = new Date(); const localToday = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        setExpenseDate(data.expense_date ?? localToday);
         setPaidBy(data.paid_by);
         const type = data.split_type === 'equal' ? 'equal' : 'custom';
         setSplitType(type);
