@@ -2,6 +2,7 @@ export interface User {
   id: string;
   name: string;
   phone?: string | null;
+  upi_id?: string | null;
   created_at: string;
 }
 

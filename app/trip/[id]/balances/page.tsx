@@ -19,8 +19,8 @@ type EnrichedTxn = {
   from_user_id: string;
   to_user_id: string;
   amount: number;
-  from_user?: { name?: string; phone?: string | null };
-  to_user?: { name?: string; phone?: string | null };
+  from_user?: { name?: string; phone?: string | null; upi_id?: string | null };
+  to_user?: { name?: string; phone?: string | null; upi_id?: string | null };
 };
 
 export default function BalancesPage() {
@@ -93,22 +93,25 @@ export default function BalancesPage() {
   }
 
   function buildUPIUrl(t: EnrichedTxn) {
-    const phone = t.to_user?.phone?.replace(/\D/g, '');
     const name = encodeURIComponent(t.to_user?.name ?? 'Payee');
     const note = encodeURIComponent(`${trip?.name ?? 'Trip'} settlement`);
     const amt = t.amount.toFixed(2);
-    // If phone available, try paytm VPA as default (most common in India)
-    const pa = phone ? `${phone}@paytm` : '';
+    // Prefer explicit UPI ID; fall back to phone@paytm
+    const upiId = t.to_user?.upi_id?.trim();
+    const phone = t.to_user?.phone?.replace(/\D/g, '');
+    const pa = upiId || (phone ? `${phone}@paytm` : '');
     return pa
-      ? `upi://pay?pa=${pa}&pn=${name}&am=${amt}&cu=INR&tn=${note}`
+      ? `upi://pay?pa=${encodeURIComponent(pa)}&pn=${name}&am=${amt}&cu=INR&tn=${note}`
       : `upi://pay?pn=${name}&am=${amt}&cu=INR&tn=${note}`;
   }
 
   function buildPaytmUrl(t: EnrichedTxn) {
+    const upiId = t.to_user?.upi_id?.trim();
     const phone = t.to_user?.phone?.replace(/\D/g, '');
+    const pa = upiId || (phone ? `${phone}@paytm` : null);
     const amt = t.amount.toFixed(2);
-    return phone
-      ? `paytmmp://pay?pa=${phone}@paytm&pn=${encodeURIComponent(t.to_user?.name ?? '')}&am=${amt}&cu=INR`
+    return pa
+      ? `paytmmp://pay?pa=${encodeURIComponent(pa)}&pn=${encodeURIComponent(t.to_user?.name ?? '')}&am=${amt}&cu=INR`
       : null;
   }
 
@@ -318,11 +321,14 @@ export default function BalancesPage() {
               <div className="bg-zinc-50 rounded-xl px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-black">{settleTarget.from_user?.name} pays {settleTarget.to_user?.name}</p>
-                  {settleTarget.to_user?.phone && (
-                    <p className="text-xs text-zinc-400 mt-0.5">To: {settleTarget.to_user.phone}</p>
+                  {settleTarget.to_user?.upi_id && (
+                    <p className="text-xs text-zinc-400 mt-0.5">UPI: {settleTarget.to_user.upi_id}</p>
                   )}
-                  {!settleTarget.to_user?.phone && (
-                    <p className="text-xs text-amber-500 mt-0.5">No phone number saved for {settleTarget.to_user?.name}</p>
+                  {!settleTarget.to_user?.upi_id && settleTarget.to_user?.phone && (
+                    <p className="text-xs text-zinc-400 mt-0.5">Phone: {settleTarget.to_user.phone}</p>
+                  )}
+                  {!settleTarget.to_user?.upi_id && !settleTarget.to_user?.phone && (
+                    <p className="text-xs text-amber-500 mt-0.5">No UPI ID or phone saved — ask {settleTarget.to_user?.name} to add one</p>
                   )}
                 </div>
                 <p className="text-xl font-bold text-black">{fmt(settleTarget.amount, currency)}</p>

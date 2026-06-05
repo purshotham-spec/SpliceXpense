@@ -5,15 +5,20 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { code: string } }
 ) {
-  const { data, error } = await getSupabase()
+  const sb = getSupabase();
+  const { data: trip, error } = await sb
     .from('trips')
     .select('*')
     .eq('invite_code', params.code.toUpperCase())
     .single();
 
-  if (error || !data) {
-    return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
-  }
+  if (error || !trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
 
-  return NextResponse.json(data);
+  const { data: members } = await sb
+    .from('trip_members')
+    .select('*, user:users!user_id(*)')
+    .eq('trip_id', trip.id)
+    .order('joined_at');
+
+  return NextResponse.json({ trip, members: members ?? [] });
 }
