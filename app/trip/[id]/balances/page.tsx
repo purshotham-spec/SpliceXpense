@@ -27,8 +27,17 @@ export default function BalancesPage() {
   const currency = trip?.currency ?? 'INR';
 
   const { transactions, memberStats, shareLink } = useMemo(() => {
-    const allSplits: ExpenseSplit[] = expenses.flatMap((e) => e.splits ?? []);
-    const txns = calculateBalances(members, expenses, allSplits);
+    // Only consider splits for current members — removed members are excluded
+    const activeMemberIds = new Set(members.map((m) => m.user_id));
+    const allSplits: ExpenseSplit[] = expenses.flatMap((e) => e.splits ?? []).filter((s) => activeMemberIds.has(s.user_id));
+
+    // Use effective amount (sum of active splits) so paid vs share zeros out correctly
+    const effectiveExpenses = expenses.map((e) => {
+      const activeTotal = (e.splits ?? []).filter((s) => activeMemberIds.has(s.user_id)).reduce((sum, s) => sum + Number(s.amount), 0);
+      return { ...e, amount: activeTotal };
+    });
+
+    const txns = calculateBalances(members, effectiveExpenses, allSplits);
     const memberMap = Object.fromEntries(members.map((m) => [m.user_id, m.user]));
     const enriched = txns.map((t) => ({
       ...t,
@@ -39,7 +48,7 @@ export default function BalancesPage() {
     const paid: Record<string, number> = {};
     const share: Record<string, number> = {};
     members.forEach((m) => { paid[m.user_id] = 0; share[m.user_id] = 0; });
-    expenses.forEach((e) => { if (paid[e.paid_by] !== undefined) paid[e.paid_by] += Number(e.amount); });
+    effectiveExpenses.forEach((e) => { if (paid[e.paid_by] !== undefined) paid[e.paid_by] += Number(e.amount); });
     allSplits.forEach((s) => { if (share[s.user_id] !== undefined) share[s.user_id] += Number(s.amount); });
 
     const stats: MemberStat[] = members.map((m) => {

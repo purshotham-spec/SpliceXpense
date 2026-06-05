@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { setUserId, setUserName } from '@/lib/user';
+import { setUserId, setUserName, getUserId, getUserName } from '@/lib/user';
 import type { Trip } from '@/lib/types';
 
 export default function JoinPage() {
@@ -14,7 +14,7 @@ export default function JoinPage() {
   const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => getUserName() ?? '');
   const [phone, setPhone] = useState('');
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
@@ -34,21 +34,27 @@ export default function JoinPage() {
     setJoining(true);
     setJoinError('');
     try {
-      const userRes = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim() || null }),
-      });
-      const user = await userRes.json();
-      if (!userRes.ok) throw new Error(user.error);
-
-      setUserId(user.id);
-      setUserName(user.name);
+      // Reuse existing identity if available — prevents iOS Safari duplicate accounts
+      let userId = getUserId();
+      if (!userId) {
+        const userRes = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), phone: phone.trim() || null }),
+        });
+        const user = await userRes.json();
+        if (!userRes.ok) throw new Error(user.error);
+        userId = user.id;
+        setUserId(user.id);
+        setUserName(user.name);
+      } else {
+        setUserName(name.trim());
+      }
 
       const joinRes = await fetch(`/api/trips/${trip!.id}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id }),
+        body: JSON.stringify({ user_id: userId }),
       });
       if (!joinRes.ok) throw new Error('Failed to join trip');
 
