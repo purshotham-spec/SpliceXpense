@@ -24,6 +24,7 @@ export default function EditExpensePage() {
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState('');
   const [paidBy, setPaidBy] = useState('');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -37,6 +38,7 @@ export default function EditExpensePage() {
         if (data.error) { setError('Expense not found.'); return; }
         setDescription(data.description);
         setAmount(String(data.amount));
+        setExpenseDate(data.expense_date ?? new Date().toISOString().slice(0, 10));
         setPaidBy(data.paid_by);
         const type = data.split_type === 'equal' ? 'equal' : 'custom';
         setSplitType(type);
@@ -88,6 +90,7 @@ export default function EditExpensePage() {
         amount: total,
         split_type: splitType,
         paid_by: activePaidBy,
+        expense_date: expenseDate,
         splits,
       }),
     });
@@ -139,14 +142,22 @@ export default function EditExpensePage() {
             onChange={(e) => setDescription(e.target.value)}
             className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
           />
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="Amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="flex-1 border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
+            />
+            <input
+              type="date"
+              value={expenseDate}
+              onChange={(e) => setExpenseDate(e.target.value)}
+              className="border border-zinc-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-zinc-400 bg-white text-zinc-600"
+            />
+          </div>
         </div>
 
         {members.length > 0 && (

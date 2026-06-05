@@ -35,6 +35,7 @@ export default function ExpenseCard({ expense, currency, currentUserId, tripOwne
             <>
               Paid by {expense.payer?.name ?? '—'}
               {splitCount > 0 && ` · ${splitCount} people`}
+              {expense.expense_date && ` · ${new Date(expense.expense_date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
             </>
           )}
         </p>

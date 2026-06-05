@@ -107,6 +107,7 @@ export function TripProvider({ tripId, children }: { tripId: string; children: R
       split_type: data.split_type,
       receipt_url: null,
       created_at: new Date().toISOString(),
+      expense_date: data.expense_date ?? null,
       pending: true,
       payer,
       splits: data.splits.map((s, i) => ({

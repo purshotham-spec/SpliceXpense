@@ -48,6 +48,7 @@ export interface Expense {
   split_type: 'equal' | 'custom' | 'items';
   receipt_url?: string | null;
   created_at: string;
+  expense_date?: string | null;
   payer?: User;
   splits?: ExpenseSplit[];
   receipt_items?: ReceiptItem[];
@@ -75,6 +76,7 @@ export interface SaveExpenseInput {
   amount: number;
   split_type: 'equal' | 'custom' | 'items';
   paid_by: string;
+  expense_date?: string;
   splits: { user_id: string; amount: number }[];
   receipt_items?: { name: string; price: number; assigned_to: string[] }[];
 }

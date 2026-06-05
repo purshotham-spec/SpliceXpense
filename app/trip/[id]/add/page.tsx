@@ -33,6 +33,7 @@ export default function AddExpensePage() {
   // Manual form
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paidBy, setPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [splitType, setSplitType] = useState<'equal' | 'custom'>('equal');
   const [selectedMembers, setSelectedMembers] = useState<string[]>(() =>
@@ -44,6 +45,7 @@ export default function AddExpensePage() {
   const [scanning, setScanning] = useState(false);
   const [receiptItems, setReceiptItems] = useState<ReceiptLineItem[]>([]);
   const [receiptDescription, setReceiptDescription] = useState('');
+  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [receiptPaidBy, setReceiptPaidBy] = useState(() => userId ?? members[0]?.user_id ?? '');
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
@@ -84,6 +86,7 @@ export default function AddExpensePage() {
       amount: total,
       split_type: splitType,
       paid_by: activePaidBy,
+      expense_date: expenseDate,
       splits,
     });
 
@@ -172,6 +175,7 @@ export default function AddExpensePage() {
       amount: total,
       split_type: 'items',
       paid_by: activePaidBy,
+      expense_date: receiptDate,
       splits,
       receipt_items: receiptItems.map(({ name, price, assigned_to }) => ({
         name,
@@ -225,14 +229,22 @@ export default function AddExpensePage() {
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
               />
-              <input
-                type="number"
-                inputMode="decimal"
-                placeholder="Amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="flex-1 border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
+                />
+                <input
+                  type="date"
+                  value={expenseDate}
+                  onChange={(e) => setExpenseDate(e.target.value)}
+                  className="border border-zinc-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-zinc-400 bg-white text-zinc-600"
+                />
+              </div>
             </div>
 
             {members.length > 0 && (
@@ -287,6 +299,12 @@ export default function AddExpensePage() {
                 value={receiptDescription}
                 onChange={(e) => setReceiptDescription(e.target.value)}
                 className="w-full border border-zinc-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-zinc-400 bg-white"
+              />
+              <input
+                type="date"
+                value={receiptDate}
+                onChange={(e) => setReceiptDate(e.target.value)}
+                className="w-full border border-zinc-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-zinc-400 bg-white text-zinc-600"
               />
               {members.length > 0 && (
                 <MemberPicker
