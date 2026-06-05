@@ -6,13 +6,16 @@ interface Props {
   currency: string;
   currentUserId: string;
   tripOwnerId?: string;
+  onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export default function ExpenseCard({ expense, currency, currentUserId, tripOwnerId, onDelete }: Props) {
+export default function ExpenseCard({ expense, currency, currentUserId, tripOwnerId, onEdit, onDelete }: Props) {
   const myShare = expense.splits?.find((s) => s.user_id === currentUserId)?.amount;
   const splitCount = expense.splits?.length ?? 0;
-  const canDelete = !expense.pending && onDelete && (currentUserId === expense.paid_by || currentUserId === tripOwnerId);
+  const canAct = !expense.pending && (currentUserId === expense.paid_by || currentUserId === tripOwnerId);
+  const canDelete = canAct && !!onDelete;
+  const canEdit = canAct && !!onEdit;
 
   return (
     <div
@@ -43,12 +46,24 @@ export default function ExpenseCard({ expense, currency, currentUserId, tripOwne
             <p className="text-xs text-zinc-400">you: {fmt(myShare, currency)}</p>
           )}
         </div>
+        {canEdit && (
+          <button
+            onClick={() => onEdit!(expense.id)}
+            className="text-zinc-300 hover:text-black transition-colors leading-none"
+            title="Edit"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            </svg>
+          </button>
+        )}
         {canDelete && (
           <button
             onClick={() => {
-              if (confirm(`Delete "${expense.description}"?`)) onDelete(expense.id);
+              if (confirm(`Delete "${expense.description}"?`)) onDelete!(expense.id);
             }}
-            className="text-zinc-300 hover:text-red-400 transition-colors text-xl leading-none ml-1"
+            className="text-zinc-300 hover:text-red-400 transition-colors text-xl leading-none"
+            title="Delete"
           >
             ×
           </button>

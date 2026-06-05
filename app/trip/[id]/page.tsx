@@ -210,6 +210,7 @@ export default function TripPage() {
                 currency={currency}
                 currentUserId={userId ?? ''}
                 tripOwnerId={trip.owner_id ?? undefined}
+                onEdit={(id) => router.push(`/trip/${tripId}/edit/${id}`)}
                 onDelete={(id) => deleteExpense(id, userId ?? '')}
               />
             ))}
