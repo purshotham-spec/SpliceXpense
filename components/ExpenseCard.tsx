@@ -6,13 +6,17 @@ interface Props {
   currency: string;
   currentUserId: string;
   tripOwnerId?: string;
+  activeMemberIds?: string[];
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export default function ExpenseCard({ expense, currency, currentUserId, tripOwnerId, onEdit, onDelete }: Props) {
+export default function ExpenseCard({ expense, currency, currentUserId, tripOwnerId, activeMemberIds, onEdit, onDelete }: Props) {
   const myShare = expense.splits?.find((s) => s.user_id === currentUserId)?.amount;
-  const splitCount = expense.splits?.length ?? 0;
+  const activeSplits = activeMemberIds
+    ? (expense.splits ?? []).filter((s) => activeMemberIds.includes(s.user_id))
+    : (expense.splits ?? []);
+  const splitCount = activeSplits.length;
   const canAct = !expense.pending && (currentUserId === expense.paid_by || currentUserId === tripOwnerId);
   const canDelete = canAct && !!onDelete;
   const canEdit = canAct && !!onEdit;
